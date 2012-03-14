@@ -621,7 +621,8 @@ encode_parameters([P | T], Count, Formats, Values) ->
     encode_parameters(T, Count + 1, Formats2, Values2).
 
 %% encode parameter
-
+encode_parameter({inet, IP}) when is_list(IP) -> {0, encode_list(IP)};
+encode_parameter({inet, IP}) 	-> {0, encode_ip(IP)};
 encode_parameter({Type, Value}) ->
     case pgsql_binary:encode(Type, Value) of
         Bin when is_binary(Bin) -> {1, Bin};
@@ -632,6 +633,9 @@ encode_parameter(B) when is_binary(B)  -> {0, <<(byte_size(B)):?int32, B/binary>
 encode_parameter(I) when is_integer(I) -> {0, encode_list(integer_to_list(I))};
 encode_parameter(F) when is_float(F)   -> {0, encode_list(float_to_list(F))};
 encode_parameter(L) when is_list(L)    -> {0, encode_list(L)}.
+
+encode_ip(IP) ->
+    encode_list(inet_parse:ntoa(IP)).
 
 encode_list(L) ->
     Bin = list_to_binary(L),

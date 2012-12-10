@@ -623,6 +623,7 @@ encode_parameters([P | T], Count, Formats, Values) ->
 %% encode parameter
 encode_parameter({inet, IP}) when is_list(IP) -> {0, encode_list(IP)};
 encode_parameter({inet, IP}) 	-> {0, encode_ip(IP)};
+encode_parameter({{unknown_oid, _Oid}, T}) when is_tuple(T) -> {0, encode_tuple(T)};
 encode_parameter({Type, Value}) ->
     case pgsql_binary:encode(Type, Value) of
         Bin when is_binary(Bin) -> {1, Bin};
@@ -634,8 +635,20 @@ encode_parameter(I) when is_integer(I) -> {0, encode_list(integer_to_list(I))};
 encode_parameter(F) when is_float(F)   -> {0, encode_list(float_to_list(F))};
 encode_parameter(L) when is_list(L)    -> {0, encode_list(L)}.
 
-encode_ip(IP) ->
-    encode_list(inet_parse:ntoa(IP)).
+encode_ip(IP) -> encode_list(inet_parse:ntoa(IP)).
+
+encode_tuple(T) -> encode_tuple(tuple_to_list(T), []).
+
+encode_tuple([], A) ->
+  [$, | B] = lists:flatten(lists:reverse([$) | A])),
+  encode_list([$( | B]);
+encode_tuple([E | T], A) ->
+  encode_tuple(T, [encode_tuple_element(E) | A]).
+
+encode_tuple_element(A) when is_atom(A) -> ",\"" ++ atom_to_list(A) ++ "\"";
+encode_tuple_element(I) when is_integer(I) -> "," ++ integer_to_list(I);
+encode_tuple_element(F) when is_float(F) -> "," ++ float_to_list(F);
+encode_tuple_element(L) when is_list(L) -> ",\"" ++ L ++ "\"".
 
 encode_list(L) ->
     Bin = list_to_binary(L),

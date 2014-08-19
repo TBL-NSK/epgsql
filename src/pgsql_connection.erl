@@ -154,25 +154,25 @@ auth({$R, <<5:?int32, Salt:4/binary>>}, State) ->
     {next_state, auth, State, Timeout};
 
 auth({$R, <<M:?int32, _/binary>>}, State) ->
-    case M of
-        2 -> Method = kerberosV5;
-        4 -> Method = crypt;
-        6 -> Method = scm;
-        7 -> Method = gss;
-        8 -> Method = sspi;
-        _ -> Method = unknown
-    end,
+    Method = case M of
+               2 -> kerberosV5;
+               4 -> crypt;
+               6 -> scm;
+               7 -> gss;
+               8 -> sspi;
+               _ -> unknown
+             end,
     Error = {error, {unsupported_auth_method, Method}},
     gen_fsm:reply(State#state.reply_to, Error),
     {stop, normal, State};
 
 %% ErrorResponse
 auth({error, E}, State) ->
-    case E#error.code of
-        <<"28000">> -> Why = invalid_authorization_specification;
-        <<"28P01">> -> Why = invalid_password;
-        Any         -> Why = Any
-    end,
+    Why = case E#error.code of
+            <<"28000">> -> invalid_authorization_specification;
+            <<"28P01">> -> invalid_password;
+            Any         -> Any
+          end,
     gen_fsm:reply(State#state.reply_to, {error, Why}),
     {stop, normal, State};
 
@@ -188,10 +188,10 @@ initializing({$K, <<Pid:?int32, Key:?int32>>}, State) ->
 
 %% ErrorResponse
 initializing({error, E}, State) ->
-    case E#error.code of
-        <<"28000">> -> Why = invalid_authorization_specification;
-        Any         -> Why = Any
-    end,
+    Why = case E#error.code of
+            <<"28000">> -> invalid_authorization_specification;
+            Any         -> Any
+          end,
     gen_fsm:reply(State#state.reply_to, {error, Why}),
     {stop, normal, State};
 
@@ -235,10 +235,10 @@ ready({equery, Statement, Parameters}, From, State) ->
     {reply, ok, querying, State2, Timeout};
 
 ready({get_parameter, Name}, _From, State) ->
-    case lists:keysearch(Name, 1, State#state.parameters) of
-        {value, {Name, Value}} -> Value;
-        false                  -> Value = undefined
-    end,
+    Value = case lists:keysearch(Name, 1, State#state.parameters) of
+              {value, {Name, Val}} -> Val;
+              false                  -> undefined
+            end,
     {reply, {ok, Value}, ready, State};
 
 ready({parse, Name, Sql, Types}, From, State) ->
@@ -271,9 +271,9 @@ ready({execute, Statement, PortalName, MaxRows}, From, State) ->
 
 ready({describe, Type, Name}, From, State) ->
     #state{timeout = Timeout} = State,
-    case Type of
-        statement -> Type2 = $S;
-        portal    -> Type2 = $P
+    Type2 = case Type of
+        statement -> $S;
+        portal    -> $P
     end,
     send(State, $D, [Type2, Name, 0]),
     send(State, $H, []),
@@ -281,10 +281,10 @@ ready({describe, Type, Name}, From, State) ->
 
 ready({close, Type, Name}, From, State) ->
     #state{timeout = Timeout} = State,
-    case Type of
-        statement -> Type2 = $S;
-        portal    -> Type2 = $P
-    end,
+    Type2 = case Type of
+              statement -> $S;
+              portal    -> $P
+            end,
     send(State, $C, [Type2, Name, 0]),
     send(State, $H, []),
     {next_state, closing, State#state{reply_to = From}, Timeout};
@@ -537,10 +537,10 @@ decode_data([], _Bin, Acc) ->
 decode_data([_C | T], <<-1:?int32, Rest/binary>>, Acc) ->
     decode_data(T, Rest, [null | Acc]);
 decode_data([C | T], <<Len:?int32, Value:Len/binary, Rest/binary>>, Acc) ->
-    case C of
-        #column{type = Type, format = 1}   -> Value2 = pgsql_binary:decode(Type, Value);
-        #column{}                          -> Value2 = Value
-    end,
+    Value2 = case C of
+               #column{type = Type, format = 1}   -> pgsql_binary:decode(Type, Value);
+               #column{}                          -> Value
+             end,
     decode_data(T, Rest, [Value2 | Acc]).
 
 %% decode column information
@@ -585,10 +585,10 @@ encode_types([], Count, Acc) ->
     <<Count:?int16, Acc/binary>>;
 
 encode_types([Type | T], Count, Acc) ->
-    case Type of
-        undefined -> Oid = 0;
-        _Any      -> Oid = pgsql_types:type2oid(Type)
-    end,
+    Oid = case Type of
+            undefined -> 0;
+            _Any      -> pgsql_types:type2oid(Type)
+          end,
     encode_types(T, Count + 1, <<Acc/binary, Oid:?int32>>).
 
 %% encode column formats
@@ -621,21 +621,18 @@ encode_parameters([P | T], Count, Formats, Values) ->
     encode_parameters(T, Count + 1, Formats2, Values2).
 
 %% encode parameter
-encode_parameter({inet, IP}) when is_list(IP) -> {0, encode_list(IP)};
-encode_parameter({inet, IP}) 	-> {0, encode_ip(IP)};
 encode_parameter({{unknown_oid, _Oid}, T}) when is_tuple(T) -> {0, encode_tuple(T)};
 encode_parameter({Type, Value}) ->
     case pgsql_binary:encode(Type, Value) of
         Bin when is_binary(Bin) -> {1, Bin};
-        {error, unsupported}    -> encode_parameter(Value)
+        {error, unsupported}    -> encode_parameter(Value);
+        Val                     -> encode_parameter(Val)
     end;
 encode_parameter(A) when is_atom(A)    -> {0, encode_list(atom_to_list(A))};
 encode_parameter(B) when is_binary(B)  -> {0, <<(byte_size(B)):?int32, B/binary>>};
 encode_parameter(I) when is_integer(I) -> {0, encode_list(integer_to_list(I))};
 encode_parameter(F) when is_float(F)   -> {0, encode_list(float_to_list(F))};
 encode_parameter(L) when is_list(L)    -> {0, encode_list(L)}.
-
-encode_ip(IP) -> encode_list(inet_parse:ntoa(IP)).
 
 encode_tuple(T) -> encode_tuple(tuple_to_list(T), []).
 

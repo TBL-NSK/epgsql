@@ -55,6 +55,7 @@ oid2type(1082) -> date;
 oid2type(1083) -> time;
 oid2type(1114) -> timestamp;
 oid2type(1184) -> timestamptz;
+oid2type(1185) -> {array, timestamptz};
 oid2type(1186) -> interval;
 oid2type(1266) -> timetz;
 oid2type(1560) -> bit;
@@ -84,6 +85,7 @@ oid2type(2282) -> opaque;
 oid2type(2283) -> anyelement;
 oid2type(2776) -> anynonarray;
 oid2type(3500) -> anyenum;
+oid2type(3802) -> jsonb;
 oid2type(Oid)  -> {unknown_oid, Oid}.
 
 type2oid(bool)                  -> 16;

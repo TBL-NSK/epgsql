@@ -26,6 +26,8 @@ encode(interval = Type, B)                  -> ?datetime:encode(Type, B);
 encode(bytea, B) when is_binary(B)          -> <<(byte_size(B)):?int32, B/binary>>;
 encode(text, B) when is_binary(B)           -> <<(byte_size(B)):?int32, B/binary>>;
 encode(varchar, B) when is_binary(B)        -> <<(byte_size(B)):?int32, B/binary>>;
+encode(inet, IP) when is_tuple(IP)          -> inet_parse:ntoa(IP);
+encode({array, Type}, L) when is_list(L)    -> encode_array(Type, L);
 encode(boolarray, L) when is_list(L)        -> encode_array(bool, L);
 encode(int2array, L) when is_list(L)        -> encode_array(int2, L);
 encode(int4array, L) when is_list(L)        -> encode_array(int4, L);
